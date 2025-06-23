@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DrumBeast - Web Drum Machine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <button id="toggle-panel-btn">🎹 Beat Sequencer</button>
+    <button id="dark-mode-toggle">☀️ Light Mode</button>
+
+    <h1>🥁 DrumBeast</h1>
+
+    <div id="audio-status">Click a pad to start</div>
+
+    <div id="note-display"> </div>
+
+    <div id="keyboard" class="drum-pads">
+        <div class="row">
+            <kbd data-key="q">Kick</kbd>
+            <kbd data-key="w">Snare</kbd>
+            <kbd data-key="e">Hat (C)</kbd>
+            <kbd data-key="r">Hat (O)</kbd>
+        </div>
+        <div class="row">
+            <kbd data-key="a">Tom 1</kbd>
+            <kbd data-key="s">Tom 2</kbd>
+            <kbd data-key="d">Tom 3</kbd>
+            <kbd data-key="f">Crash</kbd>
+        </div>
+    </div>
+
+     <div class="instructions">Use keyboard keys: Q, W, E, R, A, S, D, F</div>
+
+
+    <div id="side-panel">
+        <h2>Beat Sequencer</h2>
+        <button id="record-btn">⏺️ Record Beat</button>
+        <button id="play-btn" disabled>▶️ Play</button>
+        <button id="stop-playback-btn" disabled>⏹️ Stop Playback</button>
+        <textarea id="note-sequence-display" placeholder="Recorded drum hits will appear here... (Editable JSON)"></textarea>
+        <div id="sequence-clipboard-buttons">
+            <button id="copy-sequence-btn">📄 Copy</button>
+            <button id="paste-sequence-btn">📋 Paste</button>
+        </div>
+        <button id="export-btn" disabled>📤 Export Beat</button>
+        <label for="import-file-input" class="button-like-label">📥 Import Beat</label>
+        <input type="file" id="import-file-input" accept=".json">
+        <button id="clear-sequence-btn">🗑️ Clear Beat</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
