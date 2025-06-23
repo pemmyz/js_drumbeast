@@ -27,11 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let noiseBuffer;
     let globalVolume = 0.8;
     let limiter;
+    // Special array to track only the gain nodes of currently audible open hi-hats
+    let openHiHatGains = []; 
 
-    // NEW: Voice Pooling System
-    const soundPools = {};
-    const POOL_SIZE = 10; // Number of voices per drum sound. 10 is plenty for rapid hits.
-    
     const statusDiv = document.getElementById('audio-status');
     const noteDisplay = document.getElementById('note-display');
     const volumeSlider = document.getElementById('volume-slider');
@@ -101,11 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createLimiter(ctx) {
         const limiterNode = ctx.createDynamicsCompressor();
-        limiterNode.threshold.setValueAtTime(-1.0, ctx.currentTime); // Threshold at -1dB
-        limiterNode.knee.setValueAtTime(0, ctx.currentTime);      // Hard knee
-        limiterNode.ratio.setValueAtTime(20, ctx.currentTime);     // 20:1 ratio for limiting
-        limiterNode.attack.setValueAtTime(0.002, ctx.currentTime); // Fast attack
-        limiterNode.release.setValueAtTime(0.1, ctx.currentTime);  // Fast release
+        limiterNode.threshold.setValueAtTime(-1.0, ctx.currentTime);
+        limiterNode.knee.setValueAtTime(0, ctx.currentTime);
+        limiterNode.ratio.setValueAtTime(20.0, ctx.currentTime);
+        limiterNode.attack.setValueAtTime(0.002, ctx.currentTime);
+        limiterNode.release.setValueAtTime(0.1, ctx.currentTime);
         limiterNode.connect(ctx.destination);
         return limiterNode;
     }
@@ -119,20 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 if (!audioContext) {
                     audioContext = new(window.AudioContext || window.webkitAudioContext)();
-                    limiter = createLimiter(audioContext); // Create master limiter
+                    limiter = createLimiter(audioContext); // Create the master limiter
                     const bufferSize = 2 * audioContext.sampleRate;
                     noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
                     const output = noiseBuffer.getChannelData(0);
                     for (let i = 0; i < bufferSize; i++) {
                         output[i] = Math.random() * 2 - 1;
                     }
-                    // Pre-populate the sound pools
-                    Object.keys(keyToDrumMap).forEach(key => {
-                        soundPools[key] = { voices: [], index: 0 };
-                        for (let i = 0; i < POOL_SIZE; i++) {
-                            soundPools[key].voices.push({ busy: false });
-                        }
-                    });
                 }
                 audioContext.resume().then(() => {
                     updateAudioStatus("Audio Ready", "ready");
@@ -155,77 +146,65 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.textContent = message;
     }
 
-    // This function now gets a specific "voice" object from the pool to use
-    function getVoiceFromPool(key) {
-        if (!soundPools[key]) return null;
-        const pool = soundPools[key];
-        // Cycle through the pool to find a free voice
-        for (let i = 0; i < POOL_SIZE; i++) {
-            const voiceIndex = (pool.index + i) % POOL_SIZE;
-            if (!pool.voices[voiceIndex].busy) {
-                pool.index = (voiceIndex + 1) % POOL_SIZE; // Move index for next time
-                return pool.voices[voiceIndex];
-            }
-        }
-        // If all voices are busy, just return the next one in line (steals the voice)
-        const voice = pool.voices[pool.index];
-        pool.index = (pool.index + 1) % POOL_SIZE;
-        return voice;
-    }
+    // --- Drum Sound Synthesis Functions (Fire-and-Forget model) ---
+    // Each function creates and plays a new, independent sound instance that is
+    // automatically cleaned up by the browser. All sounds are routed through the limiter.
 
-    function playSound(key, playFunc) {
-        if (!audioContext) return;
-        const voice = getVoiceFromPool(key);
-        if (!voice) return;
-        
-        voice.busy = true;
-        
-        // This stops any previously playing sound on this specific voice instance
-        if(voice.sourceNodes) {
-            voice.sourceNodes.forEach(node => {
-                try { node.stop(); } catch (e) {}
-                node.disconnect();
-            });
-        }
-        
-        // The play function now returns the nodes it created
-        voice.sourceNodes = playFunc();
-
-        // The sound is no longer busy after it has finished playing
-        const totalDuration = 2000; // A safe upper limit for all sounds
-        setTimeout(() => {
-            voice.busy = false;
-        }, totalDuration);
-    }
+    function playKick() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.5); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5); osc.start(now); osc.stop(now + 0.5); }
+    function playSnare() { const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1500; noiseFilter.Q.value = 0.5; const noiseGain = audioContext.createGain(); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(limiter); const osc = audioContext.createOscillator(); osc.type = 'triangle'; const oscGain = audioContext.createGain(); osc.connect(oscGain); oscGain.connect(limiter); noiseGain.gain.setValueAtTime(1 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2); osc.frequency.setValueAtTime(100, now); oscGain.gain.setValueAtTime(0.7 * globalVolume, now); oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1); noise.start(now); osc.start(now); noise.stop(now + 0.2); osc.stop(now + 0.1); }
     
-    // --- Drum Sound Synthesis Functions (UPDATED FOR POOLING) ---
-    // They now return an array of the top-level source nodes they create.
-    function playKick() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.5); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.5); osc.start(now); osc.stop(now + 0.5); return [osc]; }
-    function playSnare() { const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1500; noiseFilter.Q.value = 0.5; const noiseGain = audioContext.createGain(); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(limiter); const osc = audioContext.createOscillator(); osc.type = 'triangle'; const oscGain = audioContext.createGain(); osc.connect(oscGain); oscGain.connect(limiter); noiseGain.gain.setValueAtTime(1 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.2); osc.frequency.setValueAtTime(100, now); oscGain.gain.setValueAtTime(0.7 * globalVolume, now); oscGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.1); noise.start(now); osc.start(now); noise.stop(now + 0.2); osc.stop(now + 0.1); return [noise, osc]; }
-    
-    let openHiHatNodes = [];
     function chokeOpenHiHat() {
-        openHiHatNodes.forEach(node => {
-            if (node.gain.value > 0) {
-                 const now = audioContext.currentTime;
-                 node.gain.cancelScheduledValues(now);
-                 node.gain.setValueAtTime(node.gain.value, now);
-                 node.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
-            }
+        // Go through all tracked open hats and silence them immediately.
+        openHiHatGains.forEach(gainNode => {
+            const now = audioContext.currentTime;
+            // Start the fade from the current volume to avoid clicks.
+            gainNode.gain.cancelScheduledValues(now);
+            gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
         });
-        openHiHatNodes = [];
+        openHiHatGains = []; // Clear the tracking array.
     }
 
-    function playHat(isOpen) { const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 10000; bandpass.Q.value = 1.5; const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 7000; const gain = audioContext.createGain(); noise.connect(highpass); highpass.connect(bandpass); bandpass.connect(gain); gain.connect(limiter); const decayTime = isOpen ? 0.5 : 0.05; if (isOpen) { chokeOpenHiHat(); openHiHatNodes.push(gain); } else { chokeOpenHiHat(); } gain.gain.setValueAtTime(0.5 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + decayTime); noise.start(now); noise.stop(now + decayTime); return [noise]; }
-    function playTom(pitch) { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(pitch, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); gain.gain.setValueAtTime(0.8 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.4); osc.start(now); osc.stop(now + 0.4); return [osc]; }
-    function playCrash() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.4 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 1.2); gain.connect(limiter); const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 4000; bandpass.Q.value = 0.5; bandpass.connect(gain); const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000; highpass.connect(bandpass); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(highpass); noise.start(now); noise.stop(now + 1.2); return [noise]; }
-    function playClap() { const now = audioContext.currentTime; const gain = audioContext.createGain(); const filter = audioContext.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000; filter.Q.value = 0.5; gain.connect(filter); filter.connect(limiter); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.setValueAtTime(0, now + 0.01); gain.gain.setValueAtTime(1 * globalVolume, now + 0.02); gain.gain.setValueAtTime(0, now + 0.03); gain.gain.setValueAtTime(1 * globalVolume, now + 0.04); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 0.15); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(gain); noise.start(now); noise.stop(now + 0.2); return [noise]; }
-    function playRimshot() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; osc.frequency.value = 1500; const gain = audioContext.createGain(); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.05); osc.connect(gain); gain.connect(limiter); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(0.2 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.02); noise.connect(noiseGain); noiseGain.connect(limiter); osc.start(now); osc.stop(now + 0.05); noise.start(now); noise.stop(now + 0.02); return [osc, noise]; }
-    function playRide() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.3 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 2.5); gain.connect(limiter); const filter1 = audioContext.createBiquadFilter(); filter1.type = 'bandpass'; filter1.frequency.value = 5000; filter1.Q.value = 0.5; const filter2 = audioContext.createBiquadFilter(); filter2.type = 'bandpass'; filter2.frequency.value = 8000; filter2.Q.value = 0.4; filter1.connect(gain); filter2.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter1); noise.connect(filter2); noise.start(now); noise.stop(now + 2.5); return [noise]; }
-    function playTambourine() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.5 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 0.3); gain.connect(limiter); const filter = audioContext.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 8000; filter.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter); noise.start(now); noise.stop(now + 0.3); return [noise]; }
-    function play808Kick() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.linearRampToValueAtTime(0.001 * globalVolume, now + 0.9); osc.start(now); osc.stop(now + 1); const clickOsc = audioContext.createOscillator(); clickOsc.type = 'triangle'; const clickGain = audioContext.createGain(); clickOsc.connect(clickGain); clickGain.connect(limiter); clickOsc.frequency.value = 1000; clickGain.gain.setValueAtTime(0.3 * globalVolume, now); clickGain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 0.02); clickOsc.start(now); clickOsc.stop(now + 0.02); return [osc, clickOsc]; }
-    function play808Snare() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 180; const oscGain = audioContext.createGain(); oscGain.gain.setValueAtTime(0.5 * globalVolume, now); oscGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.2); osc.connect(oscGain); oscGain.connect(limiter); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 1000; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(1 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.15); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(limiter); osc.start(now); osc.stop(now + 0.2); noise.start(now); noise.stop(now + 0.15); return [osc, noise]; }
+    function playHat(isOpen) {
+        // Any hat sound (open or closed) will choke the previous open one.
+        chokeOpenHiHat();
+        const now = audioContext.currentTime;
+        const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer;
+        const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 10000; bandpass.Q.value = 1.5;
+        const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 7000;
+        const gain = audioContext.createGain();
+        noise.connect(highpass); highpass.connect(bandpass); bandpass.connect(gain); gain.connect(limiter);
+        
+        const decayTime = isOpen ? 0.5 : 0.05;
+        gain.gain.setValueAtTime(0.5 * globalVolume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + decayTime);
+        
+        noise.start(now);
+        noise.stop(now + decayTime);
 
+        // If this is an OPEN hat, add its gain node to the list to be choked later.
+        if (isOpen) {
+            openHiHatGains.push(gain);
+            // Also, set a timeout to remove it from the array after it has faded out.
+            // This prevents the array from growing indefinitely (memory leak).
+            setTimeout(() => {
+                const index = openHiHatGains.indexOf(gain);
+                if (index > -1) {
+                    openHiHatGains.splice(index, 1);
+                }
+            }, decayTime * 1000 + 50);
+        }
+    }
+
+    function playTom(pitch) { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(pitch, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); gain.gain.setValueAtTime(0.8 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4); osc.start(now); osc.stop(now + 0.4); }
+    function playCrash() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.4 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2); gain.connect(limiter); const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 4000; bandpass.Q.value = 0.5; bandpass.connect(gain); const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000; highpass.connect(bandpass); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(highpass); noise.start(now); noise.stop(now + 1.2); }
+    function playClap() { const now = audioContext.currentTime; const gain = audioContext.createGain(); const filter = audioContext.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000; filter.Q.value = 0.5; gain.connect(filter); filter.connect(limiter); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.setValueAtTime(0, now + 0.01); gain.gain.setValueAtTime(1 * globalVolume, now + 0.02); gain.gain.setValueAtTime(0, now + 0.03); gain.gain.setValueAtTime(1 * globalVolume, now + 0.04); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(gain); noise.start(now); noise.stop(now + 0.2); }
+    function playRimshot() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; osc.frequency.value = 1500; const gain = audioContext.createGain(); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05); osc.connect(gain); gain.connect(limiter); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(0.2 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02); noise.connect(noiseGain); noiseGain.connect(limiter); osc.start(now); osc.stop(now + 0.05); noise.start(now); noise.stop(now + 0.02); }
+    function playRide() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.3 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5); gain.connect(limiter); const filter1 = audioContext.createBiquadFilter(); filter1.type = 'bandpass'; filter1.frequency.value = 5000; filter1.Q.value = 0.5; const filter2 = audioContext.createBiquadFilter(); filter2.type = 'bandpass'; filter2.frequency.value = 8000; filter2.Q.value = 0.4; filter1.connect(gain); filter2.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter1); noise.connect(filter2); noise.start(now); noise.stop(now + 2.5); }
+    function playTambourine() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.5 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); gain.connect(limiter); const filter = audioContext.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 8000; filter.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter); noise.start(now); noise.stop(now + 0.3); }
+    function play808Kick() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.linearRampToValueAtTime(0.001, now + 0.9); osc.start(now); osc.stop(now + 1); const clickOsc = audioContext.createOscillator(); clickOsc.type = 'triangle'; const clickGain = audioContext.createGain(); clickOsc.connect(clickGain); clickGain.connect(limiter); clickOsc.frequency.value = 1000; clickGain.gain.setValueAtTime(0.3 * globalVolume, now); clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02); clickOsc.start(now); clickOsc.stop(now + 0.02); }
+    function play808Snare() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 180; const oscGain = audioContext.createGain(); oscGain.gain.setValueAtTime(0.5 * globalVolume, now); oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2); osc.connect(oscGain); oscGain.connect(limiter); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 1000; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(1 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(limiter); osc.start(now); osc.stop(now + 0.2); noise.start(now); noise.stop(now + 0.15); }
+    
     const soundBank = {
         'kick': playKick, 'snare': playSnare, 'hatClosed': () => playHat(false),
         'hatOpen': () => playHat(true), 'tom1': () => playTom(250), 'tom2': () => playTom(180),
@@ -239,8 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const drumType = keyToDrumMap[key];
             if (!drumType || !soundBank[drumType]) return;
 
-            // Use the new playSound function with the pool
-            playSound(key, soundBank[drumType]);
+            // Directly call the sound function. It creates its own independent instance.
+            soundBank[drumType]();
 
             if (kbdElements[key]) {
                 kbdElements[key].classList.add('active');
@@ -250,19 +229,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isRecording) {
                 const now = audioContext.currentTime;
                 const startTimeOffset = now - recordingStartTime;
-                recordedSequence.push({
-                    key,
-                    startTime: startTimeOffset,
-                    duration: 0.1,
-                    volume: 1.0
-                });
+                recordedSequence.push({ key, startTime: startTimeOffset, duration: 0.1, volume: 1.0 });
                 updateSequenceDisplay();
                 updateSequencerControls();
             }
         }).catch(err => console.error("Could not trigger drum:", err));
     }
 
-    // --- Event Listeners and Sequencer Logic (mostly unchanged) ---
+    // --- Event Listeners and Sequencer Logic (unchanged from previous versions) ---
     document.querySelectorAll('kbd[data-key]').forEach(kbd => { const key = kbd.dataset.key; if (!key) return; kbd.addEventListener('mousedown', (e) => { e.preventDefault(); if (isPlayingBack) return; triggerDrum(key); }); kbd.addEventListener('touchstart', (e) => { e.preventDefault(); if (isPlayingBack) return; triggerDrum(key); }, { passive: false }); });
     window.addEventListener('keydown', (e) => { if (e.target.tagName === 'TEXTAREA' || e.repeat || isPlayingBack) return; const key = e.key.toLowerCase(); if (keyToDrumMap[key]) { e.preventDefault(); triggerDrum(key); } if (e.key === "Escape") { e.preventDefault(); if (isPlayingBack) stopSequencePlayback(true); } });
     function updateSequencerControls() { const hasSequence = recordedSequence.length > 0; const activityLock = isRecording || isPlayingBack; playBtn.disabled = !hasSequence || activityLock; exportBtn.disabled = !hasSequence || activityLock; copySequenceBtn.disabled = !hasSequence || activityLock; pasteSequenceBtn.disabled = activityLock; clearSequenceBtn.disabled = !hasSequence || activityLock; recordBtn.disabled = isPlayingBack; stopPlaybackBtn.disabled = !isPlayingBack; if (importLabel) { importFileInput.disabled = activityLock; importLabel.classList.toggle('disabled-label', activityLock); } }
