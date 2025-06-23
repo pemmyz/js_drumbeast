@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>🥁 DrumBeast</title>  <!-- THIS LINE WAS CHANGED -->
+    <title>🥁 DrumBeast</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -15,6 +15,13 @@
     <div id="audio-status">Click a pad to start</div>
 
     <div id="note-display"> </div>
+
+    <!-- THIS SECTION IS NEW -->
+    <div class="controls-container">
+        <label for="volume-slider">Volume</label>
+        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8">
+    </div>
+    <!-- END NEW SECTION -->
 
     <div id="keyboard" class="drum-pads">
         <div class="row">

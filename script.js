@@ -26,9 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioContext;
     let noiseBuffer;
     let openHiHatGain;
+    let globalVolume = 0.8; // NEW: Global volume state
 
     const statusDiv = document.getElementById('audio-status');
     const noteDisplay = document.getElementById('note-display');
+    const volumeSlider = document.getElementById('volume-slider'); // NEW: Get slider element
+
+    // NEW: Set initial slider value and add listener
+    if (volumeSlider) {
+        volumeSlider.value = globalVolume;
+        volumeSlider.addEventListener('input', (e) => {
+            globalVolume = parseFloat(e.target.value);
+        });
+    }
 
     const keyToDrumMap = {
         'q': 'kick', 'w': 'snare', 'e': 'hatClosed', 'r': 'hatOpen',
@@ -110,20 +120,20 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.textContent = message;
     }
     
-    // --- Drum Sound Synthesis Functions ---
-    function playKick() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.5); gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5); osc.start(now); osc.stop(now + 0.5); }
-    function playSnare() { if (!audioContext) return; const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1500; noiseFilter.Q.value = 0.5; const noiseGain = audioContext.createGain(); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioContext.destination); const osc = audioContext.createOscillator(); osc.type = 'triangle'; const oscGain = audioContext.createGain(); osc.connect(oscGain); oscGain.connect(audioContext.destination); noiseGain.gain.setValueAtTime(1, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); osc.frequency.setValueAtTime(100, now); oscGain.gain.setValueAtTime(0.7, now); oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1); noise.start(now); osc.start(now); noise.stop(now + 0.2); osc.stop(now + 0.1); }
+    // --- Drum Sound Synthesis Functions (UPDATED with globalVolume) ---
+    function playKick() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.5); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.5); osc.start(now); osc.stop(now + 0.5); }
+    function playSnare() { if (!audioContext) return; const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1500; noiseFilter.Q.value = 0.5; const noiseGain = audioContext.createGain(); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioContext.destination); const osc = audioContext.createOscillator(); osc.type = 'triangle'; const oscGain = audioContext.createGain(); osc.connect(oscGain); oscGain.connect(audioContext.destination); noiseGain.gain.setValueAtTime(1 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.2); osc.frequency.setValueAtTime(100, now); oscGain.gain.setValueAtTime(0.7 * globalVolume, now); oscGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.1); noise.start(now); osc.start(now); noise.stop(now + 0.2); osc.stop(now + 0.1); }
     function chokeOpenHiHat() { if (openHiHatGain) { const now = audioContext.currentTime; openHiHatGain.gain.cancelScheduledValues(now); openHiHatGain.gain.setValueAtTime(openHiHatGain.gain.value, now); openHiHatGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03); openHiHatGain = null; } }
-    function playHat(isOpen) { if (!audioContext) return; if (isOpen) { chokeOpenHiHat(); } else { chokeOpenHiHat(); } const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 10000; bandpass.Q.value = 1.5; const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 7000; const gain = audioContext.createGain(); noise.connect(highpass); highpass.connect(bandpass); bandpass.connect(gain); gain.connect(audioContext.destination); const decayTime = isOpen ? 0.5 : 0.05; gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.001, now + decayTime); if (isOpen) { openHiHatGain = gain; } noise.start(now); noise.stop(now + decayTime); }
-    function playTom(pitch) { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); osc.frequency.setValueAtTime(pitch, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc.start(now); osc.stop(now + 0.4); }
-    function playCrash() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2); gain.connect(audioContext.destination); const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 4000; bandpass.Q.value = 0.5; bandpass.connect(gain); const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000; highpass.connect(bandpass); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(highpass); noise.start(now); noise.stop(now + 1.2); }
-    function playClap() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); const filter = audioContext.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000; filter.Q.value = 0.5; gain.connect(filter); filter.connect(audioContext.destination); gain.gain.setValueAtTime(1, now); gain.gain.setValueAtTime(0, now + 0.01); gain.gain.setValueAtTime(1, now + 0.02); gain.gain.setValueAtTime(0, now + 0.03); gain.gain.setValueAtTime(1, now + 0.04); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(gain); noise.start(now); noise.stop(now + 0.2); }
-    function playRimshot() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; osc.frequency.value = 1500; const gain = audioContext.createGain(); gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05); osc.connect(gain); gain.connect(audioContext.destination); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(0.2, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.02); noise.connect(noiseGain); noiseGain.connect(audioContext.destination); osc.start(now); osc.stop(now + 0.05); noise.start(now); noise.stop(now + 0.02); }
-    function playRide() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5); gain.connect(audioContext.destination); const filter1 = audioContext.createBiquadFilter(); filter1.type = 'bandpass'; filter1.frequency.value = 5000; filter1.Q.value = 0.5; const filter2 = audioContext.createBiquadFilter(); filter2.type = 'bandpass'; filter2.frequency.value = 8000; filter2.Q.value = 0.4; filter1.connect(gain); filter2.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter1); noise.connect(filter2); noise.start(now); noise.stop(now + 2.5); }
-    function playTambourine() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); gain.connect(audioContext.destination); const filter = audioContext.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 8000; filter.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter); noise.start(now); noise.stop(now + 0.3); }
-    function play808Kick() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5); gain.gain.setValueAtTime(1, now); gain.gain.linearRampToValueAtTime(0.001, now + 0.9); osc.start(now); osc.stop(now + 1); const clickOsc = audioContext.createOscillator(); clickOsc.type = 'triangle'; const clickGain = audioContext.createGain(); clickOsc.connect(clickGain); clickGain.connect(audioContext.destination); clickOsc.frequency.value = 1000; clickGain.gain.setValueAtTime(0.3, now); clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02); clickOsc.start(now); clickOsc.stop(now + 0.02); }
-    function play808Snare() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 180; const oscGain = audioContext.createGain(); oscGain.gain.setValueAtTime(0.5, now); oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2); osc.connect(oscGain); oscGain.connect(audioContext.destination); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 1000; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(1, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioContext.destination); osc.start(now); osc.stop(now + 0.2); noise.start(now); noise.stop(now + 0.15); }
-
+    function playHat(isOpen) { if (!audioContext) return; if (isOpen) { chokeOpenHiHat(); } else { chokeOpenHiHat(); } const now = audioContext.currentTime; const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 10000; bandpass.Q.value = 1.5; const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 7000; const gain = audioContext.createGain(); noise.connect(highpass); highpass.connect(bandpass); bandpass.connect(gain); gain.connect(audioContext.destination); const decayTime = isOpen ? 0.5 : 0.05; gain.gain.setValueAtTime(0.5 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + decayTime); if (isOpen) { openHiHatGain = gain; } noise.start(now); noise.stop(now + decayTime); }
+    function playTom(pitch) { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); osc.frequency.setValueAtTime(pitch, now); osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.4); gain.gain.setValueAtTime(0.8 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.4); osc.start(now); osc.stop(now + 0.4); }
+    function playCrash() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.4 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 1.2); gain.connect(audioContext.destination); const bandpass = audioContext.createBiquadFilter(); bandpass.type = 'bandpass'; bandpass.frequency.value = 4000; bandpass.Q.value = 0.5; bandpass.connect(gain); const highpass = audioContext.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 2000; highpass.connect(bandpass); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(highpass); noise.start(now); noise.stop(now + 1.2); }
+    function playClap() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); const filter = audioContext.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000; filter.Q.value = 0.5; gain.connect(filter); filter.connect(audioContext.destination); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.setValueAtTime(0, now + 0.01); gain.gain.setValueAtTime(1 * globalVolume, now + 0.02); gain.gain.setValueAtTime(0, now + 0.03); gain.gain.setValueAtTime(1 * globalVolume, now + 0.04); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 0.15); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(gain); noise.start(now); noise.stop(now + 0.2); }
+    function playRimshot() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; osc.frequency.value = 1500; const gain = audioContext.createGain(); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.05); osc.connect(gain); gain.connect(audioContext.destination); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(0.2 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.02); noise.connect(noiseGain); noiseGain.connect(audioContext.destination); osc.start(now); osc.stop(now + 0.05); noise.start(now); noise.stop(now + 0.02); }
+    function playRide() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.3 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 2.5); gain.connect(audioContext.destination); const filter1 = audioContext.createBiquadFilter(); filter1.type = 'bandpass'; filter1.frequency.value = 5000; filter1.Q.value = 0.5; const filter2 = audioContext.createBiquadFilter(); filter2.type = 'bandpass'; filter2.frequency.value = 8000; filter2.Q.value = 0.4; filter1.connect(gain); filter2.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter1); noise.connect(filter2); noise.start(now); noise.stop(now + 2.5); }
+    function playTambourine() { if (!audioContext) return; const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.5 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 0.3); gain.connect(audioContext.destination); const filter = audioContext.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 8000; filter.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter); noise.start(now); noise.stop(now + 0.3); }
+    function play808Kick() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; const gain = audioContext.createGain(); osc.connect(gain); gain.connect(audioContext.destination); osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5); gain.gain.setValueAtTime(1 * globalVolume, now); gain.gain.linearRampToValueAtTime(0.001 * globalVolume, now + 0.9); osc.start(now); osc.stop(now + 1); const clickOsc = audioContext.createOscillator(); clickOsc.type = 'triangle'; const clickGain = audioContext.createGain(); clickOsc.connect(clickGain); clickGain.connect(audioContext.destination); clickOsc.frequency.value = 1000; clickGain.gain.setValueAtTime(0.3 * globalVolume, now); clickGain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, now + 0.02); clickOsc.start(now); clickOsc.stop(now + 0.02); }
+    function play808Snare() { if (!audioContext) return; const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 180; const oscGain = audioContext.createGain(); oscGain.gain.setValueAtTime(0.5 * globalVolume, now); oscGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.2); osc.connect(oscGain); oscGain.connect(audioContext.destination); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 1000; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(1 * globalVolume, now); noiseGain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, now + 0.15); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioContext.destination); osc.start(now); osc.stop(now + 0.2); noise.start(now); noise.stop(now + 0.15); }
+    
     const soundBank = {
         'kick': playKick, 'snare': playSnare, 'hatClosed': () => playHat(false),
         'hatOpen': () => playHat(true), 'tom1': () => playTom(250), 'tom2': () => playTom(180),
@@ -147,107 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
     clearSequenceBtn.addEventListener('click', () => { recordedSequence = []; updateSequenceDisplay(); updateSequencerControls(); noteDisplay.textContent = "Beat Cleared"; setTimeout(() => { if (noteDisplay.textContent === "Beat Cleared") noteDisplay.textContent = ' '; }, 1500); });
     function processLoadedSequenceData(notes) { recordedSequence = notes.map(n => ({ key: n.key, startTime: parseFloat(n.startTime || 0), duration: 0.1, volume: 1.0 })); recordedSequence.sort((a, b) => a.startTime - b.startTime); updateSequenceDisplay(); updateSequencerControls(); }
     exportBtn.addEventListener('click', () => { const dataToSave = recordedSequence.map(({ key, startTime }) => ({ key, startTime })); const jsonData = JSON.stringify(dataToSave, null, 2); const blob = new Blob([jsonData], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, ''); a.download = `drumbeast_beat_${timestamp}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); });
-    
-    // --- UPDATED IMPORT FILE LISTENER ---
-    importFileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) {
-            importFileInput.value = '';
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                let fileContent = e.target.result;
-                // This regex removes single-line comments (//) while correctly ignoring them inside strings.
-                const contentWithoutComments = fileContent.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*$)/gm, (match, group1) => group1 ? '' : match);
-                const importedJson = JSON.parse(contentWithoutComments);
-                
-                // Validate the structure of the imported JSON
-                if (Array.isArray(importedJson) && (importedJson.length === 0 || importedJson.every(n => n.key && n.startTime !== undefined))) {
-                    processLoadedSequenceData(importedJson);
-                    noteDisplay.textContent = "Beat Loaded";
-                    setTimeout(() => { if (noteDisplay.textContent === "Beat Loaded") noteDisplay.textContent = ' '; }, 2000);
-                } else {
-                    alert('Invalid beat file format.');
-                }
-            } catch (err) {
-                console.error('Error parsing beat file:', err);
-                alert('Error parsing beat file.');
-            } finally {
-                // Clear the input so the same file can be loaded again
-                importFileInput.value = '';
-            }
-        };
-        reader.readAsText(file);
-    });
-
-    copySequenceBtn.addEventListener('click', () => {
-        if (recordedSequence.length === 0) return;
-        const dataToSave = recordedSequence.map(({ key, startTime }) => ({ key, startTime }));
-        const jsonSequence = JSON.stringify(dataToSave, null, 2);
-        navigator.clipboard.writeText(jsonSequence).then(() => {
-            noteDisplay.textContent = "Beat copied!";
-            setTimeout(() => { if (noteDisplay.textContent === "Beat copied!") noteDisplay.textContent = ' '; }, 1500);
-        }).catch(err => {
-            console.error('Copy failed: ', err)
-            noteDisplay.textContent = "Copy failed!";
-            setTimeout(() => { if (noteDisplay.textContent === "Copy failed!") noteDisplay.textContent = ' '; }, 1500);
-        });
-    });
-
-    // --- UPDATED PASTE BUTTON LISTENER ---
-    pasteSequenceBtn.addEventListener('click', async () => {
-        // Stop any current activity
-        if (isRecording) recordBtn.click();
-        if (isPlayingBack) stopSequencePlayback(true);
-        
-        try {
-            if (!navigator.clipboard || !navigator.clipboard.readText) {
-                noteDisplay.textContent = "Clipboard API not supported.";
-                setTimeout(() => { if (noteDisplay.textContent.startsWith("Clipboard API")) noteDisplay.textContent = ' '; }, 3000);
-                return;
-            }
-
-            const text = await navigator.clipboard.readText();
-            if (text.trim() === "") {
-                noteDisplay.textContent = "Clipboard is empty.";
-                setTimeout(() => { if (noteDisplay.textContent === "Clipboard is empty.") noteDisplay.textContent = ' '; }, 2000);
-                return;
-            }
-
-            // This regex removes single-line comments (//) while correctly ignoring them inside strings.
-            let jsonContentToParse = text.trim();
-            if (jsonContentToParse.includes('//')) {
-                jsonContentToParse = jsonContentToParse.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*$)/gm, (match, group1) => group1 ? '' : match);
-            }
-            
-            const importedJson = JSON.parse(jsonContentToParse);
-
-            // Validate the structure of the pasted JSON
-            if (Array.isArray(importedJson) && (importedJson.length === 0 || importedJson.every(n => n.key && n.startTime !== undefined))) {
-                processLoadedSequenceData(importedJson);
-                noteDisplay.textContent = "Beat Pasted!";
-                setTimeout(() => { if (noteDisplay.textContent === "Beat Pasted!") noteDisplay.textContent = ' '; }, 2000);
-            } else {
-                noteDisplay.textContent = "Pasted data is not a valid beat.";
-                setTimeout(() => { if (noteDisplay.textContent.startsWith("Pasted data")) noteDisplay.textContent = ' '; }, 3000);
-            }
-        } catch (err) {
-            console.error('Paste failed:', err);
-            noteDisplay.textContent = "Paste failed or invalid format.";
-            setTimeout(() => { if (noteDisplay.textContent.startsWith("Paste failed")) noteDisplay.textContent = ' '; }, 3000);
-        }
-        updateSequencerControls();
-    });
-
+    importFileInput.addEventListener('change', (event) => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { let fileContent = e.target.result; const contentWithoutComments = fileContent.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*$)/gm, (match, group1) => group1 ? '' : match); const importedJson = JSON.parse(contentWithoutComments); if (Array.isArray(importedJson) && (importedJson.length === 0 || importedJson.every(n => n.key && n.startTime !== undefined))) { processLoadedSequenceData(importedJson); noteDisplay.textContent = "Beat Loaded"; setTimeout(() => { if (noteDisplay.textContent === "Beat Loaded") noteDisplay.textContent = ' '; }, 2000); } else { alert('Invalid beat file format.'); } } catch (err) { console.error('Error parsing beat file:', err); alert('Error parsing beat file.'); } finally { importFileInput.value = ''; } }; reader.readAsText(file); });
+    copySequenceBtn.addEventListener('click', () => { if (recordedSequence.length === 0) return; const dataToSave = recordedSequence.map(({ key, startTime }) => ({ key, startTime })); const jsonSequence = JSON.stringify(dataToSave, null, 2); navigator.clipboard.writeText(jsonSequence).then(() => { noteDisplay.textContent = "Beat copied!"; setTimeout(() => { if (noteDisplay.textContent === "Beat copied!") noteDisplay.textContent = ' '; }, 1500); }).catch(err => { console.error('Copy failed: ', err); noteDisplay.textContent = "Copy failed!"; setTimeout(() => { if (noteDisplay.textContent === "Copy failed!") noteDisplay.textContent = ' '; }, 1500); }); });
+    pasteSequenceBtn.addEventListener('click', async () => { if (isRecording) recordBtn.click(); if (isPlayingBack) stopSequencePlayback(true); try { if (!navigator.clipboard || !navigator.clipboard.readText) { noteDisplay.textContent = "Clipboard API not supported."; setTimeout(() => { if (noteDisplay.textContent.startsWith("Clipboard API")) noteDisplay.textContent = ' '; }, 3000); return; } const text = await navigator.clipboard.readText(); if (text.trim() === "") { noteDisplay.textContent = "Clipboard is empty."; setTimeout(() => { if (noteDisplay.textContent === "Clipboard is empty.") noteDisplay.textContent = ' '; }, 2000); return; } let jsonContentToParse = text.trim(); if (jsonContentToParse.includes('//')) { jsonContentToParse = jsonContentToParse.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*$)/gm, (match, group1) => group1 ? '' : match); } const importedJson = JSON.parse(jsonContentToParse); if (Array.isArray(importedJson) && (importedJson.length === 0 || importedJson.every(n => n.key && n.startTime !== undefined))) { processLoadedSequenceData(importedJson); noteDisplay.textContent = "Beat Pasted!"; setTimeout(() => { if (noteDisplay.textContent === "Beat Pasted!") noteDisplay.textContent = ' '; }, 2000); } else { noteDisplay.textContent = "Pasted data is not a valid beat."; setTimeout(() => { if (noteDisplay.textContent.startsWith("Pasted data")) noteDisplay.textContent = ' '; }, 3000); } } catch (err) { console.error('Paste failed:', err); noteDisplay.textContent = "Paste failed or invalid format."; setTimeout(() => { if (noteDisplay.textContent.startsWith("Paste failed")) noteDisplay.textContent = ' '; }, 3000); } updateSequencerControls(); });
     updateSequencerControls();
-    const initialUnlockHandler = () => {
-        initializeAudio().then(() => {
-            document.body.removeEventListener('click', initialUnlockHandler);
-            document.body.removeEventListener('keydown', initialUnlockHandler);
-        });
-    };
-    document.body.addEventListener('click', initialUnlockHandler);
-    document.body.addEventListener('keydown', initialUnlockHandler);
+    const initialUnlockHandler = () => { initializeAudio().then(() => { document.body.removeEventListener('click', initialUnlockHandler); document.body.removeEventListener('keydown', initialUnlockHandler); }); }; document.body.addEventListener('click', initialUnlockHandler); document.body.addEventListener('keydown', initialUnlockHandler);
 });
