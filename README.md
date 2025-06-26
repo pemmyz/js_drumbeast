@@ -11,13 +11,6 @@
 
 ---
 
-## 🔗 Play It Now
-
-👉 [Launch DrumBeast](https://pemmyz.github.io/js_drumbeast)  
-🛠️ [View the Source Code](https://github.com/pemmyz/js_drumbeast)
-
----
-
 ## 🎹 Features
 
 - 🎼 **Drum Pad Keyboard** – Tap or press keys (`QWER`, `ASDF`, `ZXVBNM`) to trigger synthetic drums.
