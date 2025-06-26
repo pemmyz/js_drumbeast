@@ -91,7 +91,6 @@ MIT License — free to use, remix, and share.
 ## 🙌 Credits
 
 Created with ❤️ by [@pemmyz](https://github.com/pemmyz)  
-Thanks to all contributors, synth nerds, and JavaScript drummers! 🥁🎛️
 
 
 
