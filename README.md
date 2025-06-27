@@ -11,6 +11,11 @@
 
 ---
 
+## 📸 Screenshots
+
+### Game
+![Game 1](screenshots/game_1.png)  
+
 ## 🎹 Features
 
 - 🎼 **Drum Pad Keyboard** – Tap or press keys (`QWER`, `ASDF`, `ZXVBNM`) to trigger synthetic drums.
