@@ -98,13 +98,13 @@ body.light-mode .instructions { color: #555; }
     font-weight: bold;
 }
 
-/* --- Global Controls (Volume Slider) - NEW SECTION --- */
+/* --- Global Controls (Volume Slider) --- */
 .controls-container {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 15px;
-    margin: 20px auto;
+    margin: 10px auto;
     max-width: 400px;
 }
 
@@ -172,7 +172,66 @@ body.light-mode input[type="range"]::-moz-range-thumb {
     background: #555;
     border: 1px solid #333;
 }
-/* END NEW SECTION */
+/* END Volume SECTION */
+
+
+/* --- NEW TIMING CONTROLS SECTION --- */
+.timing-controls-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    margin: 20px auto;
+    padding: 10px;
+    max-width: 600px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.timing-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.timing-group label {
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.timing-group .bpm-label {
+    min-width: 80px;
+    text-align: left;
+}
+#bpm-display {
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.timing-group input[type="range"] {
+    width: 150px;
+}
+
+.timing-group select {
+    background-color: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px;
+    cursor: pointer;
+}
+
+body.light-mode .timing-controls-container {
+    border-color: #ccc;
+}
+body.light-mode .timing-group select {
+    background-color: #eee;
+    color: #000;
+    border-color: #aaa;
+}
+/* END NEW TIMING CONTROLS SECTION */
+
 
 /* --- Top Right Buttons --- */
 #dark-mode-toggle, #toggle-panel-btn {
