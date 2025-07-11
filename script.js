@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalVolume = 0.8;
     let globalGain = 1.0;
     let limiter;
-    let openHiHatGains = []; 
+    let openHiHatGains = [];
 
     const statusDiv = document.getElementById('audio-status');
     const noteDisplay = document.getElementById('note-display');
@@ -91,6 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let playbackTimeouts = [];
     let loopDuration = 0;
     
+    // --- MODIFIED SECTION ---
+    // Global flag to track mouse button state for hover-to-play functionality.
+    let isMouseDown = false;
+    window.addEventListener('mousedown', () => { isMouseDown = true; });
+    window.addEventListener('mouseup', () => { isMouseDown = false; });
+    // Handle case where user releases mouse button outside the window
+    window.addEventListener('mouseleave', () => { isMouseDown = false; });
+    // --- END MODIFIED SECTION ---
+
     // --- UI Elements ---
     const sidePanel = document.getElementById('side-panel');
     const togglePanelBtn = document.getElementById('toggle-panel-btn');
@@ -284,6 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
         kbd.addEventListener('mouseup', endTrigger);
         kbd.addEventListener('mouseleave', endTrigger);
         kbd.addEventListener('touchend', endTrigger);
+
+        // --- MODIFIED SECTION ---
+        // Add listener to play sound on hover if the mouse button is held down.
+        kbd.addEventListener('mouseenter', () => {
+            if (isMouseDown && !isPlayingBack) {
+                triggerDrum(key);
+            }
+        });
+        // --- END MODIFIED SECTION ---
     });
 
     window.addEventListener('keydown', (e) => {
