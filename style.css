@@ -2,11 +2,13 @@
     color-scheme: dark light;
     --panel-width: 300px;
     --panel-padding-adjustment: 320px;
-    --button-common-width: 140px; /* Adjusted width */
+    --button-common-width: 140px; 
     --button-margin: 10px;
 
+    /* Spacing calculations for header buttons */
     --dark-mode-btn-orig-right: var(--button-margin);
     --seq-panel-btn-orig-right: calc(var(--dark-mode-btn-orig-right) + var(--button-common-width) + var(--button-margin));
+    --sounds-btn-orig-right: calc(var(--seq-panel-btn-orig-right) + var(--button-common-width) + var(--button-margin));
 }
 
 body {
@@ -45,7 +47,7 @@ body.light-mode {
     margin: 10px 0;
     display: flex;
     justify-content: center;
-    gap: 15px; /* Spacing between pads */
+    gap: 15px; 
 }
 
 kbd {
@@ -116,7 +118,7 @@ input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 20px; /* Overall height for the thumb area */
+    height: 20px;
     background: transparent;
     cursor: pointer;
 }
@@ -140,7 +142,7 @@ input[type="range"]::-moz-range-track {
 /* Slider Thumb */
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    margin-top: -6px; /* (thumb height - track height) / -2 */
+    margin-top: -6px;
     width: 22px;
     height: 22px;
     background: #ccc;
@@ -155,27 +157,12 @@ input[type="range"]::-moz-range-thumb {
     border: 1px solid #999;
 }
 
-/* Light Mode Styles */
-body.light-mode input[type="range"]::-webkit-slider-runnable-track {
-    background: #ddd;
-    border: 1px solid #bbb;
-}
-body.light-mode input[type="range"]::-moz-range-track {
-    background: #ddd;
-    border: 1px solid #bbb;
-}
-body.light-mode input[type="range"]::-webkit-slider-thumb {
-    background: #555;
-    border: 1px solid #333;
-}
-body.light-mode input[type="range"]::-moz-range-thumb {
-    background: #555;
-    border: 1px solid #333;
-}
-/* END Volume SECTION */
+body.light-mode input[type="range"]::-webkit-slider-runnable-track { background: #ddd; border: 1px solid #bbb; }
+body.light-mode input[type="range"]::-moz-range-track { background: #ddd; border: 1px solid #bbb; }
+body.light-mode input[type="range"]::-webkit-slider-thumb { background: #555; border: 1px solid #333; }
+body.light-mode input[type="range"]::-moz-range-thumb { background: #555; border: 1px solid #333; }
 
-
-/* --- NEW TIMING CONTROLS SECTION --- */
+/* --- TIMING CONTROLS SECTION --- */
 .timing-controls-container {
     display: flex;
     justify-content: center;
@@ -222,19 +209,11 @@ body.light-mode input[type="range"]::-moz-range-thumb {
     cursor: pointer;
 }
 
-body.light-mode .timing-controls-container {
-    border-color: #ccc;
-}
-body.light-mode .timing-group select {
-    background-color: #eee;
-    color: #000;
-    border-color: #aaa;
-}
-/* END NEW TIMING CONTROLS SECTION */
-
+body.light-mode .timing-controls-container { border-color: #ccc; }
+body.light-mode .timing-group select { background-color: #eee; color: #000; border-color: #aaa; }
 
 /* --- Top Right Buttons --- */
-#dark-mode-toggle, #toggle-panel-btn {
+#dark-mode-toggle, #toggle-panel-btn, #toggle-sounds-btn {
     position: absolute;
     top: 10px;
     padding: 6px 12px;
@@ -251,16 +230,18 @@ body.light-mode .timing-group select {
 }
 
 body.light-mode #dark-mode-toggle,
-body.light-mode #toggle-panel-btn {
+body.light-mode #toggle-panel-btn,
+body.light-mode #toggle-sounds-btn {
     background: #ddd;
     color: #000;
 }
 
 #dark-mode-toggle { right: var(--dark-mode-btn-orig-right); }
 #toggle-panel-btn { right: var(--seq-panel-btn-orig-right); }
+#toggle-sounds-btn { right: var(--sounds-btn-orig-right); }
 
-/* --- Side Panel --- */
-#side-panel {
+/* --- Shared Side Panels --- */
+.side-panel {
     position: fixed;
     top: 0;
     right: calc(-1 * var(--panel-width) - 20px);
@@ -278,20 +259,20 @@ body.light-mode #toggle-panel-btn {
     box-sizing: border-box;
 }
 
-body.light-mode #side-panel {
+body.light-mode .side-panel {
     background-color: #f4f4f4;
     color: #333;
     box-shadow: -3px 0 8px rgba(0,0,0,0.1);
 }
 
-#side-panel.visible { right: 0; }
+.side-panel.visible { right: 0; }
 
-#side-panel h2 {
+.side-panel h2 {
     margin-top: 0;
     text-align: left;
     color: #e0e0e0;
 }
-body.light-mode #side-panel h2 { color: #333; }
+body.light-mode .side-panel h2 { color: #333; }
 
 #note-sequence-display {
     width: 100%;
@@ -314,7 +295,7 @@ body.light-mode #note-sequence-display {
     border: 1px solid #ccc;
 }
 
-#side-panel button, #side-panel .button-like-label {
+.side-panel button:not(.kit-btn), .side-panel .button-like-label {
     display: block;
     width: 100%;
     margin: 8px 0;
@@ -329,39 +310,81 @@ body.light-mode #note-sequence-display {
     transition: background-color 0.2s, border-color 0.2s;
     box-sizing: border-box;
 }
-#side-panel button:hover:not(:disabled),
-#side-panel .button-like-label:hover:not(.disabled-label) {
+
+.side-panel button:not(.kit-btn):hover:not(:disabled),
+.side-panel .button-like-label:hover:not(.disabled-label) {
     background-color: #4a4a4a;
 }
-#side-panel button:disabled,
-#side-panel .button-like-label.disabled-label {
+.side-panel button:not(.kit-btn):disabled,
+.side-panel .button-like-label.disabled-label {
     background-color: #2a2a2a;
     color: #777;
     cursor: not-allowed;
 }
-body.light-mode #side-panel button, body.light-mode #side-panel .button-like-label {
+body.light-mode .side-panel button:not(.kit-btn), body.light-mode .side-panel .button-like-label {
     background-color: #e9e9e9;
     color: #222;
     border: 1px solid #ccc;
 }
-body.light-mode #side-panel button:hover:not(:disabled),
-body.light-mode #side-panel .button-like-label:hover:not(.disabled-label) {
+body.light-mode .side-panel button:not(.kit-btn):hover:not(:disabled),
+body.light-mode .side-panel .button-like-label:hover:not(.disabled-label) {
     background-color: #d9d9d9;
 }
-body.light-mode #side-panel button:disabled,
-body.light-mode #side-panel .button-like-label.disabled-label {
+body.light-mode .side-panel button:not(.kit-btn):disabled,
+body.light-mode .side-panel .button-like-label.disabled-label {
     background-color: #f0f0f0;
     color: #999;
 }
+
+/* --- Sound Kits Specific --- */
+.kit-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 8px 0;
+    padding: 12px 15px;
+    font-size: 1.05em;
+    background-color: #3a3a3a;
+    color: #fff;
+    border: 2px solid #555;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.kit-btn:hover { background-color: #4a4a4a; }
+.kit-btn.active {
+    background-color: #ffeb3b;
+    color: #000;
+    border-color: #fbc02d;
+    font-weight: bold;
+    transform: scale(1.02);
+}
+
+body.light-mode .kit-btn {
+    background-color: #e9e9e9;
+    color: #222;
+    border-color: #ccc;
+}
+body.light-mode .kit-btn:hover { background-color: #d9d9d9; }
+body.light-mode .kit-btn.active {
+    background-color: #ffeb3b;
+    color: #000;
+    border-color: #fbc02d;
+}
+
 #sequence-clipboard-buttons { display: flex; gap: 8px; }
-#side-panel #sequence-clipboard-buttons button { flex: 1; margin: 0; }
+.side-panel #sequence-clipboard-buttons button { flex: 1; margin: 0; }
 #record-btn.recording { background-color: #c00; border-color: #a00; }
 body.light-mode #record-btn.recording { background-color: #ff4d4d; border-color: #cc0000; color: white; }
-#side-panel input[type="file"] { display: none; }
+.side-panel input[type="file"] { display: none; }
 
-/* Main content area adjustment when a panel is visible */
+/* Main content area adjustment when ANY panel is visible */
 body.panel-open-main-adjust { padding-right: var(--panel-padding-adjustment); }
 
 /* Adjust all top-right buttons when a panel is open */
 body.panel-open-main-adjust #dark-mode-toggle { right: calc(var(--dark-mode-btn-orig-right) + var(--panel-padding-adjustment)); }
 body.panel-open-main-adjust #toggle-panel-btn { right: calc(var(--seq-panel-btn-orig-right) + var(--panel-padding-adjustment)); }
+body.panel-open-main-adjust #toggle-sounds-btn { right: calc(var(--sounds-btn-orig-right) + var(--panel-padding-adjustment)); }

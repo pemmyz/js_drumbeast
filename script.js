@@ -64,18 +64,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const turboToggle = document.getElementById('turbo-toggle');
     const turboDivisionSelect = document.getElementById('turbo-division');
 
-    const keyToDrumMap = {
-        'q': 'kick', 'w': 'snare', 'e': 'hatClosed', 'r': 'hatOpen',
-        'a': 'tom1', 's': 'tom2', 'd': 'tom3', 'f': 'crash',
-        'z': 'clap', 'x': 'rimshot', 'v': 'ride', 'b': 'tambourine',
-        'n': 'kick808', 'm': 'snare808'
+    // --- Sound Kits Configuration ---
+    const kits = {
+        standard: {
+            name: "Standard Kit",
+            keyMap: {
+                'q': 'kick', 'w': 'snare', 'e': 'hatClosed', 'r': 'hatOpen',
+                'a': 'tom1', 's': 'tom2', 'd': 'tom3', 'f': 'crash',
+                'z': 'clap', 'x': 'rimshot', 'v': 'ride', 'b': 'tambourine',
+                'n': 'kick808', 'm': 'snare808'
+            },
+            displayMap: {
+                'kick': 'Kick', 'snare': 'Snare', 'hatClosed': 'Hat (C)', 'hatOpen': 'Hat (O)',
+                'tom1': 'Tom 1', 'tom2': 'Tom 2', 'tom3': 'Tom 3', 'crash': 'Crash',
+                'clap': 'Clap', 'rimshot': 'Rimshot', 'ride': 'Ride', 'tambourine': 'Tamb',
+                'kick808': '808 Kick', 'snare808': '808 Snare'
+            }
+        },
+        tinBucket: {
+            name: "Tin Bucket Kit",
+            keyMap: {
+                'q': 'kick', 'w': 'snare', 'e': 'hatClosed', 'r': 'hatOpen',
+                'a': 'tinBucket', 's': 'tonk', 'd': 'tink', 'f': 'crash',
+                'z': 'clap', 'x': 'rimshot', 'v': 'ride', 'b': 'tambourine',
+                'n': 'kick808', 'm': 'snare808'
+            },
+            displayMap: {
+                'kick': 'Kick', 'snare': 'Snare', 'hatClosed': 'Hat (C)', 'hatOpen': 'Hat (O)',
+                'tinBucket': 'Tin Bucket', 'tonk': 'Tonk', 'tink': 'Tink', 'crash': 'Crash',
+                'clap': 'Clap', 'rimshot': 'Rimshot', 'ride': 'Ride', 'tambourine': 'Tamb',
+                'kick808': '808 Kick', 'snare808': '808 Snare'
+            }
+        }
     };
-    const drumDisplayNames = {
-        'kick': 'Kick', 'snare': 'Snare', 'hatClosed': 'Hat (C)', 'hatOpen': 'Hat (O)',
-        'tom1': 'Tom 1', 'tom2': 'Tom 2', 'tom3': 'Tom 3', 'crash': 'Crash',
-        'clap': 'Clap', 'rimshot': 'Rimshot', 'ride': 'Ride', 'tambourine': 'Tambourine',
-        'kick808': '808 Kick', 'snare808': '808 Snare'
-    };
+
+    let currentKit = 'standard';
+    let keyToDrumMap = { ...kits[currentKit].keyMap };
+    let drumDisplayNames = { ...kits[currentKit].displayMap };
 
     const kbdElements = {};
     document.querySelectorAll('kbd').forEach(kbd => {
@@ -91,18 +116,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let playbackTimeouts = [];
     let loopDuration = 0;
     
-    // --- MODIFIED SECTION ---
     // Global flag to track mouse button state for hover-to-play functionality.
     let isMouseDown = false;
     window.addEventListener('mousedown', () => { isMouseDown = true; });
     window.addEventListener('mouseup', () => { isMouseDown = false; });
     // Handle case where user releases mouse button outside the window
     window.addEventListener('mouseleave', () => { isMouseDown = false; });
-    // --- END MODIFIED SECTION ---
 
-    // --- UI Elements ---
-    const sidePanel = document.getElementById('side-panel');
+    // --- UI Elements & Panels ---
+    const sequencerPanel = document.getElementById('sequencer-panel');
     const togglePanelBtn = document.getElementById('toggle-panel-btn');
+    const soundsPanel = document.getElementById('sounds-panel');
+    const toggleSoundsBtn = document.getElementById('toggle-sounds-btn');
+    
     const recordBtn = document.getElementById('record-btn');
     const playBtn = document.getElementById('play-btn');
     const stopPlaybackBtn = document.getElementById('stop-playback-btn');
@@ -114,12 +140,65 @@ document.addEventListener('DOMContentLoaded', () => {
     const importLabel = document.querySelector('label[for="import-file-input"]');
     const clearSequenceBtn = document.getElementById('clear-sequence-btn');
 
+    function closeAllPanels() {
+        sequencerPanel.classList.remove('visible');
+        soundsPanel.classList.remove('visible');
+        body.classList.remove('panel-open-main-adjust');
+        togglePanelBtn.textContent = '🎹 Beat Sequencer';
+        toggleSoundsBtn.textContent = '🪣 Sound Kits';
+    }
+
     togglePanelBtn.addEventListener('click', () => {
-        sidePanel.classList.toggle('visible');
-        body.classList.toggle('panel-open-main-adjust');
-        togglePanelBtn.textContent = sidePanel.classList.contains('visible') ? '➡️ Close Sequencer' : '🎹 Beat Sequencer';
+        const isVisible = sequencerPanel.classList.contains('visible');
+        closeAllPanels();
+        if (!isVisible) {
+            sequencerPanel.classList.add('visible');
+            body.classList.add('panel-open-main-adjust');
+            togglePanelBtn.textContent = '➡️ Close Sequencer';
+        }
         togglePanelBtn.blur();
     });
+
+    toggleSoundsBtn.addEventListener('click', () => {
+        const isVisible = soundsPanel.classList.contains('visible');
+        closeAllPanels();
+        if (!isVisible) {
+            soundsPanel.classList.add('visible');
+            body.classList.add('panel-open-main-adjust');
+            toggleSoundsBtn.textContent = '➡️ Close Sounds';
+        }
+        toggleSoundsBtn.blur();
+    });
+
+    // Kit Selection Logic
+    const kitBtns = document.querySelectorAll('.kit-btn');
+    kitBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const kitName = e.currentTarget.dataset.kit;
+            setKit(kitName);
+            kitBtns.forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+        });
+    });
+
+    function setKit(kitName) {
+        if (!kits[kitName]) return;
+        currentKit = kitName;
+        keyToDrumMap = { ...kits[kitName].keyMap };
+        drumDisplayNames = { ...kits[kitName].displayMap };
+        
+        // Update DOM Pads Text
+        document.querySelectorAll('kbd[data-key]').forEach(kbd => {
+            const key = kbd.dataset.key;
+            if (drumDisplayNames[keyToDrumMap[key]]) {
+                kbd.textContent = drumDisplayNames[keyToDrumMap[key]];
+            }
+        });
+        
+        updateSequenceDisplay();
+        noteDisplay.textContent = `${kits[kitName].name} Loaded`;
+        setTimeout(() => { if (noteDisplay.textContent.endsWith("Loaded")) noteDisplay.textContent = ' '; }, 1500);
+    }
 
     function createLimiter(ctx) {
         const limiterNode = ctx.createDynamicsCompressor();
@@ -176,17 +255,123 @@ document.addEventListener('DOMContentLoaded', () => {
     function playClap() { const now = audioContext.currentTime; const gain = audioContext.createGain(); const filter = audioContext.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000; filter.Q.value = 0.5; gain.connect(filter); filter.connect(limiter); gain.gain.setValueAtTime(1 * finalVolume(), now); gain.gain.setValueAtTime(0, now + 0.01); gain.gain.setValueAtTime(1 * finalVolume(), now + 0.02); gain.gain.setValueAtTime(0, now + 0.03); gain.gain.setValueAtTime(1 * finalVolume(), now + 0.04); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(gain); noise.start(now); noise.stop(now + 0.2); }
     function playRimshot() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; osc.frequency.value = 1500; const gain = audioContext.createGain(); gain.gain.setValueAtTime(1.5 * finalVolume(), now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05); osc.connect(gain); gain.connect(limiter); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(0.3 * finalVolume(), now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02); noise.connect(noiseGain); noiseGain.connect(limiter); osc.start(now); osc.stop(now + 0.05); noise.start(now); noise.stop(now + 0.02); }
     function playRide() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.3 * finalVolume(), now); gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5); gain.connect(limiter); const filter1 = audioContext.createBiquadFilter(); filter1.type = 'bandpass'; filter1.frequency.value = 5000; filter1.Q.value = 0.5; const filter2 = audioContext.createBiquadFilter(); filter2.type = 'bandpass'; filter2.frequency.value = 8000; filter2.Q.value = 0.4; filter1.connect(gain); filter2.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter1); noise.connect(filter2); noise.start(now); noise.stop(now + 2.5); }
-    function playTambourine() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.5 * finalVolume(), now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); gain.connect(limiter); const filter = audioContext.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 8000; filter.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter); noise.start(now); noise.stop(now + 0.3); } // MODIFIED: Reverted gain from 0.9 to 0.5
+    function playTambourine() { const now = audioContext.currentTime; const gain = audioContext.createGain(); gain.gain.setValueAtTime(0.5 * finalVolume(), now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); gain.connect(limiter); const filter = audioContext.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 8000; filter.connect(gain); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; noise.connect(filter); noise.start(now); noise.stop(now + 0.3); } 
     function play808Kick() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'sine'; const gain = audioContext.createGain(); osc.connect(gain); gain.connect(limiter); osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5); gain.gain.setValueAtTime(1 * finalVolume(), now); gain.gain.linearRampToValueAtTime(0.001, now + 0.9); osc.start(now); osc.stop(now + 1); const clickOsc = audioContext.createOscillator(); clickOsc.type = 'triangle'; const clickGain = audioContext.createGain(); clickOsc.connect(clickGain); clickGain.connect(limiter); clickOsc.frequency.value = 1000; clickGain.gain.setValueAtTime(0.3 * finalVolume(), now); clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02); clickOsc.start(now); clickOsc.stop(now + 0.02); }
     function play808Snare() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 180; const oscGain = audioContext.createGain(); oscGain.gain.setValueAtTime(0.5 * finalVolume(), now); oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2); osc.connect(oscGain); oscGain.connect(limiter); const noise = audioContext.createBufferSource(); noise.buffer = noiseBuffer; const noiseFilter = audioContext.createBiquadFilter(); noiseFilter.type = 'highpass'; noiseFilter.frequency.value = 1000; const noiseGain = audioContext.createGain(); noiseGain.gain.setValueAtTime(1 * finalVolume(), now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(limiter); osc.start(now); osc.stop(now + 0.2); noise.start(now); noise.stop(now + 0.15); }
     function playMetronomeTick() { const now = audioContext.currentTime; const osc = audioContext.createOscillator(); const gain = audioContext.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(1000, now); osc.connect(gain); gain.connect(limiter); gain.gain.setValueAtTime(0.3 * globalVolume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05); osc.start(now); osc.stop(now + 0.05); }
+
+    // --- New Kit Sounds ---
+    function playTink() {
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1500, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        gain.gain.setValueAtTime(1.5 * finalVolume(), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 2000;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.5 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+
+        osc.connect(gain);
+        gain.connect(limiter);
+        osc.start(now);
+        osc.stop(now + 0.1);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+    
+    function playTonk() {
+        const now = audioContext.currentTime;
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+        gain.gain.setValueAtTime(2.0 * finalVolume(), now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 600;
+        
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 800;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(1 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(limiter);
+        osc.start(now);
+        osc.stop(now + 0.2);
+        noise.start(now);
+        noise.stop(now + 0.05);
+    }
+    
+    function playTinBucket() {
+        const now = audioContext.currentTime;
+        const freqs = [150, 210, 340];
+        freqs.forEach(f => {
+            const osc = audioContext.createOscillator();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(f, now);
+            osc.frequency.exponentialRampToValueAtTime(f * 0.8, now + 0.3);
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0.8 * finalVolume(), now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 500;
+            filter.Q.value = 1.5;
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(limiter);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        });
+
+        const noise = audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = audioContext.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = 800;
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(1.5 * finalVolume(), now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(limiter);
+        noise.start(now);
+        noise.stop(now + 0.15);
+    }
 
     const soundBank = {
         'kick': playKick, 'snare': playSnare, 'hatClosed': () => playHat(false),
         'hatOpen': () => playHat(true), 'tom1': () => playTom(250), 'tom2': () => playTom(180),
         'tom3': () => playTom(120), 'crash': playCrash,
         'clap': playClap, 'rimshot': playRimshot, 'ride': playRide, 'tambourine': playTambourine,
-        'kick808': play808Kick, 'snare808': play808Snare
+        'kick808': play808Kick, 'snare808': play808Snare,
+        'tink': playTink, 'tonk': playTonk, 'tinBucket': playTinBucket
     };
 
     function triggerDrum(key, fromTurbo = false) {
@@ -294,14 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
         kbd.addEventListener('mouseleave', endTrigger);
         kbd.addEventListener('touchend', endTrigger);
 
-        // --- MODIFIED SECTION ---
-        // Add listener to play sound on hover if the mouse button is held down.
         kbd.addEventListener('mouseenter', () => {
             if (isMouseDown && !isPlayingBack) {
                 triggerDrum(key);
             }
         });
-        // --- END MODIFIED SECTION ---
     });
 
     window.addEventListener('keydown', (e) => {
@@ -330,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- UNCHANGED Sequencer Logic from here ---
+    // --- Sequencer Logic ---
     function updateSequencerControls() { const hasSequence = recordedSequence.length > 0; const activityLock = isRecording || isPlayingBack; playBtn.disabled = !hasSequence || activityLock; exportBtn.disabled = !hasSequence || activityLock; copySequenceBtn.disabled = !hasSequence || activityLock; pasteSequenceBtn.disabled = activityLock; clearSequenceBtn.disabled = !hasSequence || activityLock; recordBtn.disabled = isPlayingBack; stopPlaybackBtn.disabled = !isPlayingBack; if (importLabel) { importFileInput.disabled = activityLock; importLabel.classList.toggle('disabled-label', activityLock); } }
     function updateSequenceDisplay(highlightIndex = -1) { let text = recordedSequence.map((note, index) => { const drumName = drumDisplayNames[keyToDrumMap[note.key]] || 'Unknown'; return `${String(index + 1).padStart(3, '0')}: ${drumName.padEnd(10)} @ ${note.startTime.toFixed(2)}s`; }).join('\n'); sequenceDisplay.value = text;}
     recordBtn.addEventListener('click', () => { initializeAudio().then(() => { isRecording = !isRecording; if (isRecording) { recordBtn.classList.add('recording'); recordBtn.textContent = '▉ Stop Recording'; recordingStartTime = audioContext.currentTime; recordedSequence = []; noteDisplay.textContent = "REC 🔴"; } else { recordBtn.classList.remove('recording'); recordBtn.textContent = '⏺️ Record Beat'; noteDisplay.textContent = "REC ⏹️"; if (recordedSequence.length > 0) { recordedSequence.sort((a, b) => a.startTime - b.startTime); } } updateSequenceDisplay(); updateSequencerControls(); }); });
