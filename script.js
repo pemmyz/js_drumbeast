@@ -529,4 +529,53 @@ document.addEventListener('DOMContentLoaded', () => {
     pasteSequenceBtn.addEventListener('click', async () => { if (isRecording) recordBtn.click(); if (isPlayingBack) stopSequencePlayback(true); try { const text = await navigator.clipboard.readText(); const importedJson = JSON.parse(text); if (Array.isArray(importedJson) && (importedJson.length === 0 || importedJson.every(n => n.key && n.startTime !== undefined))) { processLoadedSequenceData(importedJson); noteDisplay.textContent = "Beat Pasted!"; setTimeout(() => { if (noteDisplay.textContent === "Beat Pasted!") noteDisplay.textContent = ' '; }, 2000); } else { noteDisplay.textContent = "Pasted data is not a valid beat."; setTimeout(() => { if (noteDisplay.textContent.startsWith("Pasted data")) noteDisplay.textContent = ' '; }, 3000); } } catch (err) { console.error('Paste failed:', err); noteDisplay.textContent = "Paste failed or invalid format."; setTimeout(() => { if (noteDisplay.textContent.startsWith("Paste failed")) noteDisplay.textContent = ' '; }, 3000); } updateSequencerControls(); });
     updateSequencerControls();
     const initialUnlockHandler = () => { initializeAudio().then(() => { document.body.removeEventListener('click', initialUnlockHandler); document.body.removeEventListener('keydown', initialUnlockHandler); }); }; document.body.addEventListener('click', initialUnlockHandler); document.body.addEventListener('keydown', initialUnlockHandler);
+
+    // --- Fullscreen & Mobile Mode Scaling ---
+    const mobileToggleBtn = document.getElementById('mobile-btn');
+    const screenElement = document.getElementById("screen");
+
+    function scaleGame() {
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+        
+        if (isFullscreen) {
+            // Internal base resolution matching CSS
+            const baseWidth = 750;
+            const baseHeight = 800;
+            
+            // Calculate the scale to fit the window while maintaining aspect ratio
+            const scale = Math.min(
+                window.innerWidth / baseWidth,
+                window.innerHeight / baseHeight
+            );
+            
+            screenElement.style.transform = `scale(${scale})`;
+            document.body.classList.add('mobile-mode'); // Activates CSS lock
+        } else {
+            screenElement.style.transform = 'none'; 
+            document.body.classList.remove('mobile-mode');
+        }
+    }
+
+    function goFull() {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+            el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+        }
+    }
+
+    window.addEventListener("resize", scaleGame);
+    window.addEventListener("fullscreenchange", scaleGame);
+    window.addEventListener("webkitfullscreenchange", scaleGame);
+
+    if(mobileToggleBtn) {
+        mobileToggleBtn.addEventListener('click', () => {
+            initializeAudio().then(() => {
+                goFull();
+            });
+        });
+    }
+
+    scaleGame(); // Initial check
 });

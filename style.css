@@ -12,14 +12,20 @@
 }
 
 body {
+    margin: 0;
     font-family: sans-serif;
     text-align: center;
-    padding: 20px;
     background-color: #121212;
     color: #e0e0e0;
     transition: background-color 0.3s, color 0.3s, padding-right 0.3s ease-in-out;
     touch-action: manipulation;
     overflow-x: hidden;
+    
+    /* Center the game container */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
 
 body.light-mode {
@@ -27,9 +33,40 @@ body.light-mode {
     color: #000;
 }
 
+/* --- FULLSCREEN & SCALING --- */
+#game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+#screen {
+    width: 750px;  /* Fixed internal width */
+    height: 800px; /* Fixed internal height */
+    position: relative;
+    transform-origin: center center;
+    flex-shrink: 0;
+    padding-top: 20px;
+}
+
+body.mobile-mode {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+body.mobile-mode #mobile-btn { display: none; } /* Hide button when active */
+
+/* Tighter layout margins */
+h1 { margin: 5px 0 10px 0; }
+
 #audio-status {
-    margin: 10px;
-    padding: 10px;
+    margin: 0 10px 5px 10px;
+    padding: 5px;
     font-weight: bold;
 }
 
@@ -37,30 +74,30 @@ body.light-mode {
 #audio-status.error, #audio-status.suspended { color: #f44336; }
 
 #keyboard.drum-pads {
-    margin-top: 30px;
+    margin-top: 15px;
     user-select: none;
     -webkit-user-select: none;
     display: inline-block;
 }
 
 .row {
-    margin: 10px 0;
+    margin: 8px 0;
     display: flex;
     justify-content: center;
-    gap: 15px; 
+    gap: 12px; 
 }
 
 kbd {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
     margin: 0;
-    padding: 10px;
+    padding: 5px;
     border: 2px solid #333;
     border-radius: 8px;
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: bold;
     background: #444;
     color: #e0e0e0;
@@ -85,18 +122,18 @@ kbd.active {
 }
 
 .instructions {
-    font-size: 1em;
+    font-size: 0.9em;
     color: #aaa;
-    margin-top: 20px;
+    margin-top: 15px;
 }
 
 body.light-mode .instructions { color: #555; }
 
 #note-display {
-    font-size: 1.5em;
-    margin: 15px;
-    min-height: 30px;
-    line-height: 30px;
+    font-size: 1.3em;
+    margin: 5px;
+    min-height: 25px;
+    line-height: 25px;
     font-weight: bold;
 }
 
@@ -105,8 +142,8 @@ body.light-mode .instructions { color: #555; }
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 15px;
-    margin: 10px auto;
+    gap: 10px;
+    margin: 5px auto 15px auto;
     max-width: 400px;
 }
 
@@ -167,9 +204,9 @@ body.light-mode input[type="range"]::-moz-range-thumb { background: #555; border
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 30px;
-    margin: 20px auto;
-    padding: 10px;
+    gap: 20px;
+    margin: 10px auto;
+    padding: 8px;
     max-width: 600px;
     border: 1px solid #444;
     border-radius: 8px;
@@ -197,7 +234,7 @@ body.light-mode input[type="range"]::-moz-range-thumb { background: #555; border
 }
 
 .timing-group input[type="range"] {
-    width: 150px;
+    width: 130px;
 }
 
 .timing-group select {
@@ -212,9 +249,24 @@ body.light-mode input[type="range"]::-moz-range-thumb { background: #555; border
 body.light-mode .timing-controls-container { border-color: #ccc; }
 body.light-mode .timing-group select { background-color: #eee; color: #000; border-color: #aaa; }
 
-/* --- Top Right Buttons --- */
+/* --- Top Buttons (Including new mobile btn) --- */
+#mobile-btn {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 2000;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    transition: background 0.3s, color 0.3s;
+}
+
 #dark-mode-toggle, #toggle-panel-btn, #toggle-sounds-btn {
-    position: absolute;
+    position: fixed;
     top: 10px;
     padding: 6px 12px;
     font-size: 0.9em;
@@ -229,6 +281,7 @@ body.light-mode .timing-group select { background-color: #eee; color: #000; bord
     box-sizing: border-box;
 }
 
+body.light-mode #mobile-btn,
 body.light-mode #dark-mode-toggle,
 body.light-mode #toggle-panel-btn,
 body.light-mode #toggle-sounds-btn {
